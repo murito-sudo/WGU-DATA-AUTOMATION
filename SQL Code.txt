@@ -1,0 +1,121 @@
+--Section A starts here
+
+-- Section B: creating the detailed table
+
+DROP TABLE IF EXISTS detailed, summary;
+
+CREATE TABLE IF NOT EXISTS detailed(
+rental_id INTEGER,
+rental_date DATE,
+inventory_id INTEGER,
+actor_id INTEGER,
+actor_name VARCHAR,
+actor_last_name VARCHAR
+);
+
+--to view empty detailed table
+select * from detailed;
+
+
+--Creating summary table
+
+CREATE TABLE IF NOT EXISTS summary(
+	actor_id INTEGER,
+	actor_name varchar
+	
+);
+
+
+
+--view empty summary table
+SELECT * FROM summary;
+
+--Section C starts here
+--Extract of raw data from sqlda
+
+INSERT INTO detailed(
+	rental_id,
+	rental_date,
+	inventory_id,
+	actor_id,
+	actor_name,
+	actor_last_name
+)
+SELECT r.rental_id, r.rental_date, 
+i.inventory_id,fa.actor_id, ac.first_name, ac.last_name
+FROM rental as r
+INNER JOIN inventory  as i ON r.inventory_id = i.inventory_id
+INNER JOIN film_actor as fa ON i.film_id = fa.film_id
+INNER JOIN actor as ac ON fa.actor_id = ac.actor_id;
+
+
+select * from detailed;
+
+
+--CREATING FUNCTION
+--UPDATING THE SUMMARY TABLE AND CREATING OUR TRIGGER
+
+CREATE OR REPLACE FUNCTION function_trig() 
+RETURNS TRIGGER AS
+$BODY$
+BEGIN
+		DELETE FROM summary;
+		INSERT INTO summary(
+			SELECT
+				actor_id,
+				concat_ws(' ', actor_name, actor_last_name) AS actor_name 
+			FROM detailed
+						   
+			);
+	
+			
+
+
+
+			RETURN new;
+END
+$BODY$
+LANGUAGE plpgsql;
+
+
+
+--This will trigger everytime we insert a value on the
+--detailed's table
+CREATE TRIGGER trig
+AFTER INSERT ON detailed
+FOR EACH STATEMENT
+EXECUTE PROCEDURE function_trig();
+
+
+select * from summary;
+
+
+--Creating our procedure
+CREATE OR REPLACE PROCEDURE table_refresh()
+AS $BODY$
+
+BEGIN
+DELETE FROM detailed;
+INSERT INTO detailed(
+	rental_id,
+	rental_date,
+	inventory_id,
+	actor_id,
+	actor_name,
+	actor_last_name
+)
+SELECT r.rental_id, r.rental_date, 
+i.inventory_id,fa.actor_id, ac.first_name, ac.last_name
+FROM rental as r
+INNER JOIN inventory  as i ON r.inventory_id = i.inventory_id
+INNER JOIN film_actor as fa ON i.film_id = fa.film_id
+INNER JOIN actor as ac ON fa.actor_id = ac.actor_id;
+
+END
+$BODY$
+LANGUAGE plpgsql;
+--Calling the procedure
+CALL table_refresh();
+--Seeing the results
+SELECT * FROM summary;
+SELECT * FROM detailed;
